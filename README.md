@@ -11,19 +11,30 @@ PWA mobile-first para agendamento em salão de depilação e design de sobrancel
 - **PWA** nativo via `manifest.json` (sem lib externa)
 - **Deploy:** Vercel (frontend) + Supabase Cloud (backend)
 
-## Status da Fase 0 ✅
+## Status
 
-- [x] Scaffold Next.js 16 + TypeScript + Tailwind v4
-- [x] Supabase client libs instaladas (`@supabase/ssr`, `@supabase/supabase-js`)
-- [x] shadcn/ui inicializado (estilo `base-nova`, paleta neutral)
-- [x] Componentes: button, input, dialog, select, popover, sonner, card, label, textarea, separator, badge, calendar
-- [x] PWA manifest + ícones 192/512/180 (PNGs placeholder rosa)
-- [x] `proxy.ts` (Next.js 16 — antigo `middleware.ts` foi deprecado) protegendo rotas `/agendar`, `/meus-agendamentos`, `/minha-conta`, `/admin`
-- [x] Helpers: `formatBRL`, `formatDuration`, `formatInSalonTime`, `cn`
-- [x] `.env.example` documentado
-- [x] `npm run build` ✅ | `tsc --noEmit` ✅
+### Fase 0 ✅ — Scaffold + PWA
+- Next.js 16 + TS + Tailwind v4 + shadcn/ui (base-nova)
+- PWA manifest + ícones 192/512/180
+- `proxy.ts` protegendo rotas privadas
 
-Próximas fases (veja plano completo em `../.hermes/plans/2026-09-01_002540-salao-depilacao-pwa.md`):
+### Fase 1 ✅ — Schema + RLS
+- 4 tabelas: `clients`, `professionals`, `services`, `appointments`
+- 3 serviços seed, 1 profissional seed
+- RLS habilitada em todas
+- Função `get_available_slots(service_id, date)` (timezone, almoço, duração)
+- Constraint de overlap impede 2 agendamentos no mesmo horário
+- Triggers: `ends_at` automático, `updated_at`
+
+### Fase 2 ✅ — Auth custom
+- Tabelas `auth_credentials` + `auth_sessions`
+- Senha + JWT em cookie HTTP-only (`salao_session`)
+- bcrypt cost 12, validação Zod, rate limit 5/15min por IP
+- Lock de conta após 5 tentativas falhas (15 min)
+- API: `/api/auth/{register,login,logout}` + página `/minha-conta`
+- Build verde, todos endpoints testados via curl
+
+**Próximas fases:**
 
 1. Fase 1 — Schema do banco + RLS
 2. Fase 2 — Auth cliente (magic link)
@@ -34,75 +45,95 @@ Próximas fases (veja plano completo em `../.hermes/plans/2026-09-01_002540-sala
 
 ## Setup local
 
-### 1. Variáveis de ambiente
+### 1. Subir Postgres local
+
+```bash
+docker run -d --name salao-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=devpass \
+  -e POSTGRES_DB=salao \
+  -p 5433:5432 \
+  -v salao_pgdata:/var/lib/postgresql/data \
+  postgres:17-alpine
+```
+
+### 2. Aplicar migrations
+
+```bash
+PGPASSWORD=devpass psql -h localhost -p 5433 -U postgres -d salao \
+  -f supabase/migrations/0001_init.sql
+PGPASSWORD=devpass psql -h localhost -p 5433 -U postgres -d salao \
+  -f supabase/migrations/0002_auth.sql
+```
+
+### 3. Variáveis de ambiente
 
 ```bash
 cp .env.example .env.local
+# gere JWT_SECRET:
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env.local
 ```
 
-Preencha com as credenciais do seu projeto Supabase (se ainda não tem, veja abaixo).
-
-### 2. Provisionamento Supabase (1 salão, 1 profissional)
-
-1. Crie conta gratuita em [supabase.com](https://supabase.com)
-2. **New project** → região **South America (São Paulo)**, senha forte para o DB
-3. Aguarde provisionar (~2 min)
-4. **Settings → API**: copie `Project URL` e `anon public` → cole em `.env.local`
-5. **Settings → API**: copie `service_role` (⚠️ NUNCA exponha ao frontend, só server-side)
-6. **Authentication → Providers**: habilite **Email** (magic link). Desabilite "Confirm email" se quiser fluxo mais simples
-7. **Authentication → URL Configuration**: adicione `http://localhost:3000` em **Site URL** e `http://localhost:3000/auth/callback` em **Redirect URLs**
-8. **SQL Editor**: as migrations virão na Fase 1 — rode em ordem
-
-### 3. Rodar localmente
+### 4. Instalar deps e rodar
 
 ```bash
 npm install
 npm run dev
 ```
 
-App em `http://localhost:3000`.
+App em `http://localhost:3000` (ou 3001 se 3000 estiver ocupada).
 
-### 4. Deploy Vercel (quando pronto)
+### Testar auth via curl
 
-1. Push para GitHub
-2. Importe o repo em [vercel.com/new](https://vercel.com/new)
-3. Em **Environment Variables**, adicione as 3 chaves do `.env.local`
-4. Deploy
+```bash
+BASE=http://localhost:3001
+curl -X POST $BASE/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Maria","phone":"11999998888","password":"senha12345"}'
+```
 
 ## Estrutura
 
 ```
 salao-pwa/
 ├── src/
-│   ├── app/                  # App Router (rotas)
-│   │   ├── layout.tsx        # metadata PWA + Sonner
-│   │   └── page.tsx          # landing
+│   ├── app/
+│   │   ├── api/auth/
+│   │   │   ├── login/route.ts
+│   │   │   ├── logout/route.ts
+│   │   │   └── register/route.ts
+│   │   ├── cadastro/page.tsx
+│   │   ├── login/page.tsx
+│   │   ├── minha-conta/page.tsx
+│   │   ├── minha-conta/logout-button.tsx
+│   │   ├── layout.tsx
+│   │   └── page.tsx
 │   ├── components/ui/        # shadcn/ui
 │   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts     # browser client
-│   │   │   ├── server.ts     # server client (cookies)
-│   │   │   └── middleware.ts # session refresh
-│   │   ├── format.ts         # BRL, duração
-│   │   ├── timezone.ts       # America/Sao_Paulo
-│   │   └── utils.ts          # cn() helper
-│   └── proxy.ts              # Next.js 16 proxy (ex-middleware)
+│   │   ├── auth.ts           # JWT, bcrypt, session
+│   │   ├── db.ts             # pg pool singleton
+│   │   ├── format.ts
+│   │   ├── timezone.ts
+│   │   └── utils.ts
+│   └── proxy.ts
+├── supabase/
+│   └── migrations/
+│       ├── 0001_init.sql     # schema + RLS + get_available_slots
+│       └── 0002_auth.sql     # auth_credentials + auth_sessions
 ├── public/
 │   ├── manifest.json
-│   ├── icon-192.png          # placeholder rosa
-│   ├── icon-512.png          # placeholder rosa
-│   └── apple-touch-icon.png  # placeholder rosa
-├── scripts/
-│   └── make_icons.py         # gerador de PNGs placeholder
+│   └── icon-*.png
+├── scripts/make_icons.py
 └── .env.example
 ```
 
 ## Notas técnicas
 
-- **Next.js 16** introduziu o file convention `proxy.ts` (substitui `middleware.ts`). O codemod `middleware-to-proxy` foi aplicado.
-- **shadcn/ui** neste projeto usa estilo `base-nova` (mais novo que o tradicional `new-york`). Componente `form` ainda não está no registry desse estilo — adicionar manualmente quando a Fase 2 precisar.
-- **Tailwind v4** usa `@import "tailwindcss"` e `@theme inline` em `globals.css` (não tem mais `tailwind.config.js`).
-- **Timezone do salão:** `America/Sao_Paulo` hardcoded em `src/lib/timezone.ts`. Tudo em `timestamptz` no DB, conversão no client.
+- **Sem Supabase Auth:** auth custom com bcrypt + JWT (cookie HTTP-only). Migrar pra Supabase Cloud depois requer trocar a função `getCurrentUser` e os 3 endpoints, mas o modelo de dados continua.
+- **Postgres local via Docker** na porta 5433 (5432 do host ocupada por outro serviço). Trocar `DATABASE_URL` no `.env.local` pra ambiente de produção.
+- **Tailwind v4** sem `tailwind.config.js` (config em `globals.css` via `@theme`).
+- **Timezone do salão:** `America/Sao_Paulo` hardcoded em `src/lib/timezone.ts`. DB armazena `timestamptz`, conversão no client.
+- **shadcn/ui estilo `base-nova`** (mais novo que `new-york`). Componente `form` não está nesse estilo — usar RHF + Zod manuais (como em `/login`).
 
 ## Licença
 
