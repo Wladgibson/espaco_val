@@ -1,51 +1,43 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { getCurrentUser } from '@/lib/auth';
-import { LogoutButton } from './logout-button';
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import { signOut } from '@/app/actions/auth'
+import { ProfileForm } from './ProfileForm'
 
 export default async function MinhaContaPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login?redirect=/minha-conta');
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login?redirect=/minha-conta')
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  if (!client) {
+    return (
+      <main className="p-6 max-w-md mx-auto">
+        <p>Perfil não encontrado.</p>
+      </main>
+    )
+  }
 
   return (
-    <main className="min-h-dvh p-4 max-w-md mx-auto bg-pink-50">
-      <h1 className="text-2xl font-semibold mb-6">Minha conta</h1>
+    <main className="p-6 max-w-md mx-auto space-y-4">
+      <ProfileForm client={client} email={user.email ?? ''} />
 
-      <section className="bg-white rounded-lg p-4 shadow-sm space-y-2 mb-4">
-        <Row label="Nome" value={user.full_name} />
-        <Row label="Telefone" value={user.phone} />
-        <Row label="Nascimento" value={user.birth_date ?? '—'} />
-        <Row label="Observações" value={user.notes ?? '—'} />
-      </section>
+      <Separator />
 
-      <p className="text-xs text-muted-foreground mb-4">
-        Edição de dados e troca de senha virão na próxima iteração.
-      </p>
+      <form action={signOut}>
+        <Button type="submit" variant="outline" className="w-full">Sair</Button>
+      </form>
 
-      <nav className="space-y-2">
-        <Link
-          href="/meus-agendamentos"
-          className="block w-full text-center py-3 rounded-md bg-pink-600 text-white font-medium"
-        >
-          Meus agendamentos
-        </Link>
-        <Link
-          href="/agendar"
-          className="block w-full text-center py-3 rounded-md border border-pink-600 text-pink-600 font-medium"
-        >
-          Agendar novo horário
-        </Link>
-        <LogoutButton />
-      </nav>
+      <div className="text-center">
+        <Link href="/agendar" className="text-pink-600 text-sm underline">Agendar horário</Link>
+      </div>
     </main>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right break-all">{value}</span>
-    </div>
-  );
+  )
 }

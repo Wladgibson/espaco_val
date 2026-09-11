@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { IosAddToHomeScreenPrompt, ServiceWorkerRegister } from "@/components/pwa/PwaPolish";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,13 +15,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Salão Depilação & Sobrancelhas",
+  title: "Espaço Val — um complemento para sua Beleza",
   description: "Agende seu horário de depilação e design de sobrancelhas",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Salão",
+    title: "Espaço Val",
+    startupImage: [
+      { url: "/apple-splash-750x1334.png", media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" },
+    ],
   },
   icons: {
     icon: [
@@ -44,8 +48,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <ServiceWorkerRegister />
         {children}
+        <IosAddToHomeScreenPrompt />
         <Toaster />
       </body>
     </html>

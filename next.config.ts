@@ -1,7 +1,16 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs/config'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  turbopack: { root: __dirname },
+}
 
-export default nextConfig;
+const config = process.env.SENTRY_DSN
+  ? withSentryConfig(nextConfig, {
+      org: 'wlad-ua',
+      project: 'salao-pwa',
+      silent: !process.env.CI,
+    })
+  : nextConfig
+
+export default config

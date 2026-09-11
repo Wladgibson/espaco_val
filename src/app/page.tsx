@@ -7,10 +7,10 @@ export default function Home() {
       <div className="max-w-md w-full space-y-8">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight text-pink-600">
-            Salão Depilação &amp; Sobrancelhas
+            Espaço Val
           </h1>
           <p className="text-lg text-muted-foreground">
-            Agende seu horário em poucos cliques
+            um complemento para sua Beleza
           </p>
         </div>
 
