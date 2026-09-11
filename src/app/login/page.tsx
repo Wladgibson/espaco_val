@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoginForm } from './LoginForm'
@@ -12,7 +13,9 @@ export default function LoginPage() {
           <CardDescription>Receba um link de acesso por email</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
           <div className="text-center text-sm text-muted-foreground">
             Não tem conta?{' '}
             <Link href="/cadastro" className="text-pink-600 underline">
