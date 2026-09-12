@@ -15,7 +15,7 @@ create table if not exists public.auth_credentials (
 
 -- Tabela de sessões ativas (permite revoke / logout de todos devices)
 create table if not exists public.auth_sessions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
   expires_at timestamptz not null,
   ip_address text,
